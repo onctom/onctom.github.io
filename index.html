@@ -180,7 +180,18 @@ create policy "owner delete" on storage.objects
   let token = null;        // access token (mémoire uniquement)
   let userEmail = null;
   let path = '';
-  try{ const saved = JSON.parse(localStorage.getItem('savevault')||'null'); if(saved) cfg = saved; }catch(e){}
+  // === Configuration intégrée (modifiez ces valeurs si besoin) ===
+  const BUILT_IN = {
+    url: 'https://aaxzyawdgepucjqnbqfc.supabase.co',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFheHp5YXdkZ2VwdWNqcW5icWZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NDM5MzEsImV4cCI6MjEwNzAxOTkzMX0.DxtL-q8554XfmEQCCaftb6LMtIUKHs6OMmarWHdEukY',
+    bucket: 'saves'
+  };
+  try{
+    const saved = JSON.parse(localStorage.getItem('savevault')||'null');
+    cfg = saved || BUILT_IN;
+  }catch(e){ cfg = BUILT_IN; }
+  // Effacement : retour à la config intégrée plutôt qu'à zéro
+  function resetCfg(){ cfg = BUILT_IN; try{ localStorage.removeItem('savevault'); }catch(e){} }
 
   function toast(msg, err){
     const t = $('toast'); t.textContent = msg; t.className='toast'+(err?' err':''); t.style.display='block';
@@ -220,9 +231,10 @@ create policy "owner delete" on storage.objects
     path = ''; showScreens();
   };
   $('btnForget').onclick = ()=>{
-    localStorage.removeItem('savevault'); cfg={url:'',key:'',bucket:'saves'}; token=null; userEmail=null;
-    $('sbUrl').value=''; $('sbKey').value=''; $('sbBucket').value='saves';
-    showScreens(); toast('Identifiants projet effacés de ce navigateur.');
+    resetCfg();
+    $('sbUrl').value=cfg.url; $('sbKey').value=cfg.key; $('sbBucket').value=cfg.bucket;
+    token=null; userEmail=null;
+    showScreens(); toast('Réglages locaux effacés — retour à la configuration intégrée.');
   };
 
   // ---- Authentification ----
