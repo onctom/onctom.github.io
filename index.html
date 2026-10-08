@@ -21,7 +21,7 @@
   .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
   h2{font-size:16px;margin:0 0 12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
   label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
-  input[type=text],input[type=password]{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:14px}
+  input[type=text],input[type=password],input[type=email]{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:14px}
   input:focus{outline:2px solid var(--accent);border-color:transparent}
   button{cursor:pointer;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;background:var(--accent);color:#fff;transition:filter .15s}
   button:hover{filter:brightness(1.15)}
@@ -37,8 +37,8 @@
   table{width:100%;border-collapse:collapse;font-size:14px}
   th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border)}
   th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase}
-  td .name{display:flex;align-items:center;gap:8px;cursor:pointer}
-  td .name.folder{color:var(--accent2)}
+  td .name{display:flex;align-items:center;gap:8px}
+  td .name.folder{color:var(--accent2);cursor:pointer}
   .muted{color:var(--muted)}
   .size{color:var(--muted);white-space:nowrap}
   #status{margin-top:10px;font-size:13px;color:var(--muted)}
@@ -54,20 +54,27 @@
   .badge{font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(76,194,255,.15);color:var(--accent2)}
   .connected{background:rgba(62,207,142,.15);color:var(--ok)}
   .hidden{display:none}
+  #loginCard{max-width:420px;margin:40px auto}
+  #loginCard .logoBig{font-size:44px;text-align:center;margin-bottom:8px}
+  #loginCard p.sub{text-align:center;color:var(--muted);font-size:13px;margin:0 0 8px}
+  .errBox{display:none;background:rgba(255,92,124,.12);border:1px solid var(--danger);color:var(--danger);border-radius:8px;padding:10px 12px;font-size:13px;margin-top:12px}
+  pre{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;overflow-x:auto;font-size:12px;color:var(--accent2)}
 </style>
 </head>
 <body>
 <header>
   <h1><span class="logo">💾</span> SaveVault <span id="stateBadge" class="badge">non configuré</span></h1>
   <div class="spacer"></div>
-  <button class="secondary small" id="btnGuide">Guide de démarrage</button>
+  <span id="whoami" class="muted" style="font-size:13px"></span>
+  <button class="secondary small hidden" id="btnLogout">Se déconnecter</button>
+  <button class="secondary small" id="btnGuide">Guide</button>
   <button class="secondary small" id="btnSettings">⚙️ Réglages</button>
 </header>
 
 <main>
   <div class="card hidden" id="settingsCard">
-    <h2>Connexion au stockage</h2>
-    <p class="muted" style="font-size:13px;margin-top:0">Ces identifiants correspondent à votre projet <b>Supabase</b> (gratuit, 1 Go). Ils restent stockés uniquement dans ce navigateur (localStorage).</p>
+    <h2>Connexion au projet Supabase</h2>
+    <p class="muted" style="font-size:13px;margin-top:0">Ces valeurs correspondent à votre projet <b>Supabase</b> (gratuit, 1 Go). Elles identifient le projet, pas la personne : la protection de vos fichiers vient de votre mot de passe et des politiques d'accès.</p>
     <label>URL du projet</label>
     <input type="text" id="sbUrl" placeholder="https://xxxx.supabase.co" />
     <label>Clé anon (public)</label>
@@ -75,12 +82,26 @@
     <label>Nom du bucket</label>
     <input type="text" id="sbBucket" placeholder="saves" />
     <div class="row" style="margin-top:16px">
-      <button id="btnSave">Enregistrer &amp; se connecter</button>
-      <button class="secondary" id="btnForget">Effacer les identifiants</button>
+      <button id="btnSave">Enregistrer</button>
+      <button class="secondary" id="btnForget">Effacer</button>
     </div>
   </div>
 
-  <div id="app">
+  <div class="card hidden" id="loginCard">
+    <div class="logoBig">🔐</div>
+    <p class="sub">Connectez-vous pour accéder à vos sauvegardes.<br/>Aucune donnée n'est conservée sur ce PC après déconnexion.</p>
+    <label>Adresse e-mail</label>
+    <input type="email" id="email" autocomplete="username" />
+    <label>Mot de passe</label>
+    <input type="password" id="password" autocomplete="current-password" />
+    <div class="errBox" id="loginError"></div>
+    <div class="row" style="margin-top:16px">
+      <button id="btnLogin" style="flex:1">Se connecter</button>
+    </div>
+    <p class="muted" style="font-size:12px;margin-bottom:0">Astuce : validez avec Entrée depuis le champ mot de passe.</p>
+  </div>
+
+  <div id="app" class="hidden">
     <div class="card">
       <h2>Déposer des fichiers</h2>
       <div class="drop" id="drop">
@@ -101,22 +122,51 @@
       </div>
       <table>
         <thead><tr><th>Nom</th><th>Taille</th><th>Modifié</th><th style="width:220px">Actions</th></tr></thead>
-        <tbody id="tbody"><tr><td colspan="4" class="muted">Configurez la connexion pour commencer.</td></tr></tbody>
+        <tbody id="tbody"></tbody>
       </table>
     </div>
   </div>
 
   <details id="guide">
-    <summary>📖 Guide de démarrage (5 minutes, 100 % gratuit)</summary>
+    <summary>📖 Guide de démarrage (10 minutes, 100 % gratuit, fichiers privés)</summary>
     <div class="card">
+      <h2>1. Projet Supabase</h2>
       <ol>
         <li>Créez un compte gratuit sur <b>supabase.com</b> puis un nouveau projet (région Europe).</li>
-        <li>Dans <b>Storage</b> → <b>New bucket</b>, créez un bucket nommé <code>saves</code> et activez l'option <b>Public bucket</b>.</li>
-        <li>Dans <b>Settings → API</b>, copiez l'<code>URL</code> du projet et la clé <code>anon public</code>.</li>
-        <li>Ouvrez SaveVault, cliquez sur ⚙️ <b>Réglages</b>, collez ces deux valeurs, puis « Enregistrer ».</li>
-        <li>Pour héberger cette page : créez un compte <b>GitHub</b>, un dépôt public, activez <b>Pages</b> et déposez-y ce fichier HTML. Sinon, gardez-le sur une clé USB : il fonctionne à l'identique.</li>
+        <li>Dans <b>Storage</b> → <b>New bucket</b>, créez un bucket nommé <code>saves</code>. ⚠️ Laissez-le <b>privé</b> (ne cochez PAS « Public bucket »).</li>
+        <li>Dans <b>Authentication → Providers</b>, vérifiez que <b>Email</b> est activé.</li>
+        <li>Dans <b>Authentication → Users → Add user</b>, créez votre compte (e-mail + mot de passe). Activez « Auto confirm user » ou confirmez l'e-mail reçu.</li>
       </ol>
-      <p class="muted" style="font-size:13px">⚠️ Bucket public = quiconque connaît l'URL peut télécharger vos fichiers. Pour un usage privé, laissez le bucket privé et créez des <i>signed URLs</i> dans les politiques Supabase. Les identifiants anon ne permettent jamais d'effacer votre projet.</p>
+      <h2>2. Politiques d'accès (RLS)</h2>
+      <p style="font-size:14px">Dans <b>Storage → Policies → New policy</b> ou via <b>SQL Editor</b>, exécutez ceci en remplaçant l'e-mail par le vôtre (il limite l'accès à votre seul compte) :</p>
+      <pre>create policy "owner select" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'saves' and auth.jwt() -&gt;&gt; 'email' = 'vous@exemple.com');
+
+create policy "owner insert" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'saves' and auth.jwt() -&gt;&gt; 'email' = 'vous@exemple.com');
+
+create policy "owner update" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'saves' and auth.jwt() -&gt;&gt; 'email' = 'vous@exemple.com');
+
+create policy "owner delete" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'saves' and auth.jwt() -&gt;&gt; 'email' = 'vous@exemple.com');</pre>
+      <h2>3. Configurer l'appli</h2>
+      <ol>
+        <li>Dans <b>Settings → API</b>, copiez l'<code>URL</code> du projet et la clé <code>anon public</code>.</li>
+        <li>Cliquez sur ⚙️ <b>Réglages</b>, collez ces deux valeurs, puis « Enregistrer ».</li>
+        <li>Connectez-vous avec l'e-mail et le mot de passe créés à l'étape 1.4.</li>
+      </ol>
+      <h2>4. Héberger la page</h2>
+      <ol>
+        <li>Créez un compte <b>GitHub</b>, un dépôt public, activez <b>Settings → Pages → Deploy from branch</b>.</li>
+        <li>Déposez ce fichier HTML sous le nom <code>index.html</code> à la racine du dépôt : la page sera servie sur <code>https://votre-nom.github.io/depot/</code>.</li>
+        <li>Alternative sans hébergement : gardez le fichier sur une clé USB, il fonctionne à l'identique en local (double-clic).</li>
+      </ol>
+      <p class="muted" style="font-size:13px;margin-bottom:0">🔒 La page publiée est publique, mais elle ne contient aucune donnée : sans votre mot de passe, elle n'affiche rien. Le jeton de session reste en mémoire dans l'onglet et disparaît à la fermeture — pensez à vous <b>déconnecter</b> avant de quitter le PC de la médiathèque.</p>
     </div>
   </details>
 </main>
@@ -127,6 +177,8 @@
 (function(){
   const $ = id => document.getElementById(id);
   let cfg = {url:'', key:'', bucket:'saves'};
+  let token = null;        // access token (mémoire uniquement)
+  let userEmail = null;
   let path = '';
   try{ const saved = JSON.parse(localStorage.getItem('savevault')||'null'); if(saved) cfg = saved; }catch(e){}
 
@@ -134,39 +186,89 @@
     const t = $('toast'); t.textContent = msg; t.className='toast'+(err?' err':''); t.style.display='block';
     clearTimeout(t._t); t._t = setTimeout(()=>t.style.display='none', 3500);
   }
-  function esc(s){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function fmtSize(n){ if(n==null) return '—'; if(n<1024) return n+' o'; if(n<1048576) return (n/1024).toFixed(1)+' Ko'; if(n<1073741824) return (n/1048576).toFixed(1)+' Mo'; return (n/1073741824).toFixed(2)+' Go'; }
   function fmtDate(s){ if(!s) return '—'; try{ return new Date(s).toLocaleString('fr-FR'); }catch(e){ return s; } }
   function configured(){ return cfg.url && cfg.key; }
-
-  function headers(extra){
-    return Object.assign({'apikey':cfg.key,'Authorization':'Bearer '+cfg.key}, extra||{});
+  function authHeaders(extra){
+    return Object.assign({'apikey':cfg.key,'Authorization':'Bearer '+(token||cfg.key)}, extra||{});
   }
 
-  function loadSettingsUI(){
-    $('sbUrl').value = cfg.url; $('sbKey').value = cfg.key; $('sbBucket').value = cfg.bucket;
-    updateBadge();
-  }
   function updateBadge(){
     const b = $('stateBadge');
-    if(configured()){ b.textContent = 'connecté — '+cfg.bucket; b.className='badge connected'; }
-    else { b.textContent='non configuré'; b.className='badge'; }
+    if(!configured()){ b.textContent='non configuré'; b.className='badge'; }
+    else if(token){ b.textContent='privé — connecté'; b.className='badge connected'; }
+    else { b.textContent='privé — non connecté'; b.className='badge'; }
+    $('whoami').textContent = userEmail||'';
+    $('btnLogout').classList.toggle('hidden', !token);
   }
 
+  function showScreens(){
+    $('app').classList.toggle('hidden', !token);
+    $('loginCard').classList.toggle('hidden', token || !configured());
+    if(!token && configured()) $('loginError').style.display='none';
+    updateBadge();
+  }
+
+  // ---- Réglages ----
   $('btnSettings').onclick = ()=> $('settingsCard').classList.toggle('hidden');
   $('btnGuide').onclick = ()=> { $('guide').open = true; $('guide').scrollIntoView({behavior:'smooth'}); };
-
   $('btnSave').onclick = ()=>{
     cfg = { url: $('sbUrl').value.trim().replace(/\/+$/,''), key: $('sbKey').value.trim(), bucket: ($('sbBucket').value.trim()||'saves') };
     localStorage.setItem('savevault', JSON.stringify(cfg));
-    updateBadge(); $('settingsCard').classList.add('hidden');
-    path = ''; refresh();
+    $('settingsCard').classList.add('hidden');
+    path = ''; showScreens();
   };
   $('btnForget').onclick = ()=>{
-    localStorage.removeItem('savevault'); cfg={url:'',key:'',bucket:'saves'}; loadSettingsUI(); updateBadge();
-    toast('Identifiants effacés de ce navigateur.');
+    localStorage.removeItem('savevault'); cfg={url:'',key:'',bucket:'saves'}; token=null; userEmail=null;
+    $('sbUrl').value=''; $('sbKey').value=''; $('sbBucket').value='saves';
+    showScreens(); toast('Identifiants projet effacés de ce navigateur.');
   };
 
+  // ---- Authentification ----
+  async function login(){
+    const email = $('email').value.trim(), password = $('password').value;
+    const errBox = $('loginError');
+    errBox.style.display='none';
+    if(!configured()){ errBox.textContent='Configurez d\'abord le projet (⚙️ Réglages).'; errBox.style.display='block'; return; }
+    if(!email || !password){ errBox.textContent='Entrez votre e-mail et votre mot de passe.'; errBox.style.display='block'; return; }
+    $('btnLogin').disabled = true; $('btnLogin').textContent = 'Connexion…';
+    try{
+      const res = await fetch(cfg.url+'/auth/v1/token?grant_type=password', {
+        method:'POST',
+        headers:{'apikey':cfg.key,'Content-Type':'application/json'},
+        body: JSON.stringify({email, password})
+      });
+      if(!res.ok){
+        let msg = 'Échec de connexion ('+res.status+').';
+        try{ const j = await res.json(); msg = (j.error_description||j.msg||j.message||msg); }catch(e){}
+        throw new Error(msg);
+      }
+      const j = await res.json();
+      token = j.access_token;
+      userEmail = j.user && j.user.email || email;
+      $('password').value='';
+      path = ''; showScreens(); refresh();
+      toast('Connecté : '+userEmail);
+    }catch(err){
+      errBox.textContent = err.message; errBox.style.display='block';
+    }finally{
+      $('btnLogin').disabled = false; $('btnLogin').textContent = 'Se connecter';
+    }
+  }
+  $('btnLogin').onclick = login;
+  $('password').addEventListener('keydown', e=>{ if(e.key==='Enter') login(); });
+  $('email').addEventListener('keydown', e=>{ if(e.key==='Enter') login(); });
+  $('btnLogout').onclick = ()=>{
+    // révoquer côté serveur si possible, puis purger localement
+    if(token){ fetch(cfg.url+'/auth/v1/logout', {method:'POST', headers:{'apikey':cfg.key,'Authorization':'Bearer '+token}}).catch(()=>{}); }
+    token=null; userEmail=null; path='';
+    showScreens();
+    $('tbody').innerHTML=''; $('breadcrumb').innerHTML='';
+    toast('Déconnecté. Rien ne reste sur ce PC.');
+  };
+
+  // ---- Storage ----
   async function api(pathname, opts){
     const res = await fetch(cfg.url+'/storage/v1'+pathname, opts);
     if(!res.ok){
@@ -178,15 +280,13 @@
   }
 
   async function refresh(){
-    if(!configured()){ $('tbody').innerHTML='<tr><td colspan="4" class="muted">Configurez la connexion (⚙️ Réglages) pour commencer.</td></tr>'; renderBreadcrumb(); return; }
+    if(!token) return;
     try{
       const res = await api('/object/list/'+encodeURIComponent(cfg.bucket), {
-        method:'POST', headers: headers({'Content-Type':'application/json'}),
+        method:'POST', headers: authHeaders({'Content-Type':'application/json'}),
         body: JSON.stringify({prefix: path, limit:200, offset:0, sortBy:{column:'name', order:'asc'}})
       });
       const items = await res.json();
-      const folders = items.filter(i=>!i.id && i.name!=='').concat(items.filter(i=>i.id && i.name==='').map(i=>({name:i.name, folderHint:true})));
-      // Standard API: folders have id null, files have id. Empty-file entries (name '' with id) are folder markers.
       const dirs = items.filter(i=>!i.id && i.name).sort((a,b)=>a.name.localeCompare(b.name));
       const files = items.filter(i=>i.id && i.name).sort((a,b)=>a.name.localeCompare(b.name));
       let html = '';
@@ -228,14 +328,14 @@
     const dl = e.target.closest('[data-dl]');
     if(dl){ download(dl.getAttribute('data-dl')); return; }
     const del = e.target.closest('[data-del]');
-    if(del){ remove([del.getAttribute('data-del')]); return; }
+    if(del){ remove([del.getAttribute('data-del')], false); return; }
     const delf = e.target.closest('[data-delfolder]');
-    if(delf){ if(confirm('Supprimer le dossier « '+delf.getAttribute('data-delfolder')+' » et tout son contenu ?')) remove([delf.getAttribute('data-delfolder')+'/.folderPlaceholder', delf.getAttribute('data-delfolder')], true); return; }
+    if(delf){ if(confirm('Supprimer le dossier « '+delf.getAttribute('data-delfolder')+' » et tout son contenu ?')) remove([delf.getAttribute('data-delfolder')+'/.keep'], true); return; }
   });
 
   async function download(fullPath){
     try{
-      const res = await api('/object/authenticated/'+encodeURIComponent(cfg.bucket)+'/'+fullPath.split('/').map(encodeURIComponent).join('/'), {headers:headers()});
+      const res = await api('/object/authenticated/'+encodeURIComponent(cfg.bucket)+'/'+fullPath.split('/').map(encodeURIComponent).join('/'), {headers:authHeaders()});
       const blob = await res.blob();
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -247,7 +347,7 @@
   async function remove(prefixes, isFolder){
     try{
       await api('/object/'+encodeURIComponent(cfg.bucket), {
-        method:'DELETE', headers: headers({'Content-Type':'application/json'}),
+        method:'DELETE', headers: authHeaders({'Content-Type':'application/json'}),
         body: JSON.stringify({prefixes: prefixes})
       });
       toast(isFolder?'Dossier supprimé.':'Fichier supprimé.');
@@ -255,7 +355,7 @@
     }catch(err){ toast('Suppression échouée : '+err.message, true); }
   }
 
-  // Upload
+  // ---- Upload ----
   const drop = $('drop'), fileInput = $('fileInput');
   drop.onclick = ()=> fileInput.click();
   ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault(); drop.classList.add('hover');}));
@@ -264,7 +364,6 @@
   fileInput.onchange = ()=>{ if(fileInput.files.length) upload([...fileInput.files]); fileInput.value=''; };
 
   async function upload(files){
-    if(!configured()){ toast('Configurez d\'abord la connexion (⚙️ Réglages).', true); return; }
     const bar = $('bar'), fill = $('barFill'), status = $('status');
     bar.style.display='block'; let done=0, errors=0;
     for(const f of files){
@@ -272,10 +371,14 @@
       status.textContent = 'Envoi : '+f.name+' ('+fmtSize(f.size)+')…';
       try{
         const res = await fetch(cfg.url+'/storage/v1/object/'+encodeURIComponent(cfg.bucket)+'/'+dest.split('/').map(encodeURIComponent).join('/'), {
-          method:'POST', headers: headers({'Content-Type':f.type||'application/octet-stream','x-upsert':'true'}),
+          method:'POST', headers: authHeaders({'Content-Type':f.type||'application/octet-stream','x-upsert':'true'}),
           body: f
         });
-        if(!res.ok) throw new Error(res.status+' '+res.statusText);
+        if(!res.ok){
+          let msg = res.status+' '+res.statusText;
+          try{ const j = await res.json(); msg = j.message||msg; }catch(e){}
+          throw new Error(msg);
+        }
       }catch(err){ errors++; console.error(err); }
       done++; fill.style.width = Math.round(done/files.length*100)+'%';
     }
@@ -286,21 +389,27 @@
 
   $('btnRefresh').onclick = refresh;
   $('btnNewFolder').onclick = async ()=>{
-    if(!configured()){ toast('Configurez d\'abord la connexion.', true); return; }
     const name = prompt('Nom du dossier :');
     if(!name) return;
     const safe = name.replace(/[\/\\]/g,'-');
     const dest = (path?path+'/':'')+safe+'/.keep';
     try{
-      await fetch(cfg.url+'/storage/v1/object/'+encodeURIComponent(cfg.bucket)+'/'+dest.split('/').map(encodeURIComponent).join('/'), {
-        method:'POST', headers: headers({'Content-Type':'text/plain','x-upsert':'true'}),
-        body: '' // placeholder to materialize the folder
+      const res = await fetch(cfg.url+'/storage/v1/object/'+encodeURIComponent(cfg.bucket)+'/'+dest.split('/').map(encodeURIComponent).join('/'), {
+        method:'POST', headers: authHeaders({'Content-Type':'text/plain','x-upsert':'true'}),
+        body: 'keep'
       });
+      if(!res.ok){
+        let msg = res.status+' '+res.statusText;
+        try{ const j = await res.json(); msg = j.message||msg; }catch(e){}
+        throw new Error(msg);
+      }
       toast('Dossier créé.'); refresh();
     }catch(err){ toast('Création échouée : '+err.message, true); }
   };
 
-  loadSettingsUI(); renderBreadcrumb(); refresh();
+  // ---- Init ----
+  $('sbUrl').value = cfg.url; $('sbKey').value = cfg.key; $('sbBucket').value = cfg.bucket;
+  showScreens(); renderBreadcrumb();
 })();
 </script>
 </body>
