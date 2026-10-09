@@ -41,6 +41,9 @@
   td .name.folder{color:var(--accent2);cursor:pointer}
   .muted{color:var(--muted)}
   .size{color:var(--muted);white-space:nowrap}
+  img.thumb{width:44px;height:44px;object-fit:cover;border-radius:6px;background:var(--panel2);border:1px solid var(--border)}
+  img.thumb.loading{opacity:.4}
+  .name.dbl{cursor:zoom-in}
   #status{margin-top:10px;font-size:13px;color:var(--muted)}
   .bar{height:6px;background:var(--panel2);border-radius:3px;margin-top:6px;overflow:hidden;display:none}
   .bar>div{height:100%;background:var(--accent);width:0%;transition:width .2s}
@@ -291,6 +294,33 @@ create policy "owner delete" on storage.objects
     return res;
   }
 
+  const IMG_EXT = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i;
+  function isImage(name){ return IMG_EXT.test(name); }
+
+  // URL signée (bucket privé) : valide 1 h, révocable à la déconnexion
+  async function signUrl(fullPath, width){
+    try{
+      const res = await fetch(cfg.url+'/storage/v1/object/sign/'+encodeURIComponent(cfg.bucket)+'/'+fullPath.split('/').map(encodeURIComponent).join('/'), {
+        method:'POST', headers: authHeaders({'Content-Type':'application/json'}),
+        body: JSON.stringify({expiresIn: 3600})
+      });
+      if(!res.ok) throw new Error(res.status);
+      const j = await res.json();
+      let u = cfg.url+'/storage/v1'+j.signedURL;
+      if(width) u = u.replace('/object/sign/','/render/image/sign/')+'&width='+width;
+      return u;
+    }catch(e){ return null; }
+  }
+
+  // Affiche les vignettes des images de la liste
+  async function loadThumbs(){
+    document.querySelectorAll('img.thumb[data-thumb]').forEach(async img=>{
+      const u = await signUrl(img.getAttribute('data-thumb'), 96);
+      if(u){ img.src = u; img.classList.remove('loading'); }
+      else { img.replaceWith(Object.assign(document.createElement('span'),{textContent:'📄'})); }
+    });
+  }
+
   async function refresh(){
     if(!token) return;
     try{
@@ -310,7 +340,8 @@ create policy "owner delete" on storage.objects
       });
       files.forEach(f=>{
         const full = (path?path+'/':'')+f.name;
-        html += `<tr><td><span class="name">📄 ${esc(f.name)}</span></td>
+        const img = isImage(f.name);
+        html += `<tr><td><span class="name ${img?'dbl':''}" ${img?`data-full="${esc(full)}"`:''}>${img?`<img class="thumb loading" data-thumb="${esc(full)}" alt=""/>`:'📄'} ${esc(f.name)}</span></td>
           <td class="size">${fmtSize(f.metadata && f.metadata.size)}</td>
           <td class="size">${fmtDate(f.updated_at)}</td>
           <td class="row">
@@ -320,6 +351,7 @@ create policy "owner delete" on storage.objects
       });
       $('tbody').innerHTML = html || '<tr><td colspan="4" class="muted">Aucun fichier ici. Déposez vos fichiers plus haut.</td></tr>';
       renderBreadcrumb();
+      if(token) loadThumbs();
     }catch(err){
       $('tbody').innerHTML = '<tr><td colspan="4" class="muted" style="color:var(--danger)">Erreur : '+esc(err.message)+'</td></tr>';
     }
@@ -343,6 +375,15 @@ create policy "owner delete" on storage.objects
     if(del){ remove([del.getAttribute('data-del')], false); return; }
     const delf = e.target.closest('[data-delfolder]');
     if(delf){ if(confirm('Supprimer le dossier « '+delf.getAttribute('data-delfolder')+' » et tout son contenu ?')) remove([delf.getAttribute('data-delfolder')+'/.keep'], true); return; }
+  });
+
+  // Double-clic sur une image → ouverture en pleine taille dans un nouvel onglet
+  document.addEventListener('dblclick', async e=>{
+    const el = e.target.closest('[data-full]');
+    if(!el) return;
+    const u = await signUrl(el.getAttribute('data-full'), null);
+    if(u) window.open(u, '_blank');
+    else toast('Impossible de générer le lien de l\'image.', true);
   });
 
   async function download(fullPath){
